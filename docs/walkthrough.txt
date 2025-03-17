@@ -1,0 +1,4 @@
+Firstly i did setup a producer.py and also a consumer.py to setup a kafka messaging queue. In producer.py just using some simulated data that is received by consumer.py. Had to do a version drop of python from 3.13 to 3.10 for it to work as Kafka was having version issues.
+
+Now using fraudTest.csv to train a model (which si to be built after preprocessing dataset).
+

@@ -1,0 +1,237 @@
+## Question 1: Biggest challenge in detecting fraud in real time?
+
+Answer : Balance between speed and accuracy
+         System must process transactions instantly and also needs to have a correct analysis to avoid false poositives or negatives. Hence optimized ml pipelines and algos with feature engineering that can work at scale without adding significant latency
+
+####################################################################################################################################################################################################################################################################################################
+
+## Questions 2 : How to balance speed or rapid detection with ensuring accuracy (minimizing false positives)?
+
+Answer : Multi-tiered approach
+
+tier 1 : Fast screening layer -> A lightweight, real-time model quickly processes incoming transactions, flagging those that appear suspicious based on pre-set thresholds.
+
+tier 2 : Deep analysis layer -> Borderline transactions are forwarded to a secondary, more robust model or business logic module for further analysis using ensemble methods, detailed feature extraction, and refined threshold tuning.
+
+tier 3 : Continuous Improvement -> Regular model retraining using recent transaction data and feedback loops from manual reviews help adapt to new fraud patterns and reduce false positives over time.
+
+####################################################################################################################################################################################################################################################################################################
+
+## Question 3 : Functional requirements?
+
+3.1 : Expected volume of transactions per second and what latency is acceptale for detection?
+
+Answer : For this prototype -> hundreds of transactions ; in production level -> thousands or millions per second.
+            latency : range if 10 -100 milliseconds (few hundred; 100 millisec = 0.1 sec) for each detection cycle to ensure real time responses.
+
+3.2 : Kind of alerts ? - immediate alerting for every flagged transaction or batch alerts?
+
+Answer : Immediate alerts -> for high - risk transactions to allow prompt action.
+        Batch alerts -> for low - rish transactions or when system is under heay load
+
+        Soo a hybrid approach such that critical alerts are sent instantly and others are aggragated and reviewed in batches
+
+
+####################################################################################################################################################################################################################################################################################################
+
+
+## Question 4: Non Functional requirements?
+
+4.1 : Which performance metrics (e.g., response time, throughput) are most critical for your use case?
+
+Answer : Critical metrics-> (a) Response time : latency between receiving a transaction and generating fraud alert
+                            (b) Throughputs : Number of transactions processed per second
+                            (c) System availability : uptime and ability to handle peak loads without degradation
+                            (d) Accuracy (false negative/ positive rates) : Accuracy metrics of fraud detection model
+
+(won't worry too much about the below right now)
+Q: What security or regulatory standards must the system adhere to (e.g., PCI-DSS)?
+A: Given the sensitivity of financial data, the system should adhere to standards such as:
+	•	PCI-DSS: For handling credit card transactions.
+	•	GDPR or CCPA: If processing personal data for users in Europe or California.
+	•	Other relevant local financial regulations, ensuring data encryption, secure storage, and proper access controls.
+
+####################################################################################################################################################################################################################################################################################################
+
+
+## Architecture Overview
+
+Pipeline -
+
+Data Ingestion(Kafka producers): collects and streams transaction data
+Processing (Kafka consunmers) : routes data to ml model and caching layer
+Storage (postgresql) : persists all transaction
+Caching (redis) : provides fast access tp frequently used data
+Api layer(Fast Api) : Exposes endpoints for predicrtions and management
+Monitoring : continuously tracks performance and logs system activity
+
+
+Question : Any constraints on integrating these components (e.g. data formats, communication protocols)?
+Answer : Yes, standardizing data formats(such as JSON) across components is critical. 
+Communication protocols (such as REST for api and kafka native protocol for message queue) to be carefully chosed for seemless integration.
+Ensuring compatibility between python libraries and external services (e.g. PostgreSWL,Redis) for smooth deployment
+
+####################################################################################################################################################################################################################################################################################################
+
+Reason for caching:
+
+(a) Recent Transaction Patterns: Cache recent behavioral metrics such as transaction frequency, average amounts, and velocity of transactions for individual users. This data helps quickly determine if a new transaction deviates from a user’s normal behavior.
+
+(b) User Session Data & Risk Profiles: Store temporary risk scores or computed features for users that have been flagged recently. This enables the system to quickly reference past assessments when processing subsequent transactions.
+
+(c) Reference Data (Blacklists/Whitelists): Cache lists of known fraudulent entities—such as user IDs, IP addresses, or device fingerprints—so that the system can immediately cross-check a transaction without querying the main database each time.
+
+(d) Intermediate Computation Results: Save pre-computed features or aggregates that are resource-intensive to calculate repeatedly. This speeds up the inference process by reusing recent computations for transactions occurring in close time proximity.
+
+####################################################################################################################################################################################################################################################################################################
+
+## components
+
+####################################################################################################################################################################################################################################################################################################
+
+(1) Why use kafka over alternative like RabbitMQ ? 
+
+Kafka is for high throughtput; fault- tolerant; scalable stream processing + supports durable message storage and efficient data partioning
+making it ideal for scenrios requiring real-time processing and massive data volumes, while RabbitMQ is excellent for message queuing in many appliications, may not scale efficiently under extreme load.
+
+
+(2) How will you handle data ordering and ensure exactly-once semantics if needed?
+
+Data ordering -> Ordering and partitoning can be done based in transaction IDs or user identifiers to that releated transactions are processed sequentially. 
+
+exactly-once semantics (ensuring each message is handles only once) -> what kafka does is -:
+consumer offset management : (when consumer produces messages from kafka, it keeps track or progress with offset, sth like a bookmark).
+if consumer crashes it restarts, it can resunme from last recorded offsert
+
+idempotent producer : even if same messge is sent multiople times, only gets recorded once
+if netwrok glitch or wrror causes a message to be sent twice, idempotent producer ensures kafka only stores one copy if that message
+
+additional app;ication level checks (might be needed) in complex systems:
+* despite above mechanisms, comoplex system can still face issues like duplicate processing sue to inforseen errors or race conditions, so camn implement safeguards like :m
+unique identifiers : ensuring each transaction has a unique id anf checking for duplicates before processing
+
+database constraints : ensuring unique constraints in database to prevent inserting the same transaction more than once.
+
+####################################################################################################################################################################################################################################################################################################
+
+Data Storage(PostgreSQL)
+
+Q: How will you manage database scaling and ensure performance under high transaction loads?
+
+	•	Vertical Scaling: Upgrading hardware (more CPU cores (4-core to 8-core), RAM (16 gb to 32 gb), hdd to SSDs) for the database server.
+
+	•	Horizontal Scaling: Adding more servers to distribute load across multiple machines. Read Replicas: Creating additional copies of your database that handle read queries, so the main server (the primary) is less burdened.
+    Partitioning (Sharding): Dividing your database into smaller, more manageable pieces (shards) based on a key (like user ID), so each shard handles a portion of the data.
+
+	•	Indexing & Query Optimization: Carefully indexing frequently queried columns and tuning SQL queries.
+
+	•	Connection Pooling: Managing database connections efficiently to prevent overload.(
+    Connection pooling is like having a team of waiters who are always on duty. When a customer arrives, one of the available waiters is assigned to them immediately without the delay of hiring a new one. Once the order is taken and processed, the waiter goes back to the team, ready to serve the next customer.
+    In technical terms:
+A pool of pre-established database connections that your application can reuse instead of opening and closing a connection for every request.
+	Why It Helps:
+		Efficiency: Establishing a new database connection is slow and resource-intensive. Reusing connections means you save time and computing resources.
+		Performance: With connections readily available, your application can handle more requests quickly, which is especially important under heavy load.
+    )
+
+
+
+Q: Will you need to archive older data, and how might that influence your database design?
+Yes, archiving older transaction data can help maintain performance. This may involve:
+	•	Implementing data retention policies.
+	•	Using table partitioning by date.
+	•	Offloading historical data to a data warehouse or cold storage, ensuring the primary database remains optimized for recent, active data.
+
+####################################################################################################################################################################################################################################################################################################
+
+Q: What type of ML model are you considering (e.g., Random Forest, Logistic Regression, Neural Networks), and why?
+Answer : nitially, a Random Forest or Logistic Regression model can be a good starting point due to their interpretability, ease of implementation, and relatively fast inference times. As the system evolves and the data volume grows, might explore Neural Networks or ensemble methods to capture more complex patterns, albeit with potential trade-offs in latency.
+
+####################################################################################################################################################################################################################################################################################################
+
+Q: How will you design your feature engineering pipeline to ensure low-latency inference?
+A: The pipeline should:
+	•	Pre-compute and cache static features.
+	•	Use streaming frameworks to update dynamic features in real time.
+	•	Minimize on-the-fly computations by leveraging optimized libraries and vectorized operations.
+	•	Possibly use micro-batching where appropriate to balance between latency and throughput.
+
+4.4. In-Memory Cache (Redis)
+
+Q: What specific data will you cache, and for how long?
+A: Data that is frequently queried or subject to rapid changes—such as recent transaction patterns, flagged user IDs, or risk scores—can be cached. The retention period might vary; for example, caching transaction patterns for a few minutes to an hour can balance performance without risking outdated data.
+
+Q: How will you handle cache invalidation or updates?
+A: Strategies include:
+	•	Setting appropriate TTLs (Time-to-Live) for cached entries.
+	•	Using cache invalidation triggers when underlying data in PostgreSQL is updated.
+	•	Implementing a cache-aside pattern where the application checks the cache first and updates it upon data changes.
+
+
+####################################################################################################################################################################################################################################################################################################
+
+API layer (Fast API)
+
+Q: What response time do you expect from your API endpoints?
+A: Ideally, the API should respond within tens to a few hundred milliseconds, ensuring that the fraud detection process is nearly real time. This requires efficient code, asynchronous processing, and minimal blocking operations.
+
+Q: How will you handle API security and rate limiting?
+A: Security measures can include:
+	•	Authentication & Authorization: Using API keys or OAuth tokens.
+	•	Encryption: Ensuring data is transmitted over HTTPS.
+	•	Rate Limiting: Implementing middleware to prevent abuse or DDoS attacks.
+	•	Input Validation: Sanitizing all inputs to avoid injection attacks.
+
+
+4.6. Deployment & Monitoring
+
+Q: What are the key performance and health metrics you plan to monitor?
+A: Key metrics include:
+	•	API Response Times: To detect latency issues.
+	•	Throughput: Number of transactions processed per second.
+	•	Error Rates: For both API errors and processing failures.
+	•	Resource Utilization: CPU, memory, and network usage.
+	•	ML Model Performance: Accuracy, false positive/negative rates, and drift over time.
+
+Q: How will you structure alerts for both system failures and model performance issues?
+A: Alerts should be structured based on severity:
+	•	Critical Alerts: Immediate notifications for system outages or severe performance degradation.
+	•	Warning Alerts: Notifications for gradual performance issues or signs of model drift.
+	•	Integration with tools like Prometheus and Grafana can provide dashboards and automated alerts (via email, SMS, or chat integrations) that help the team react quickly.
+
+####################################################################################################################################################################################################################################################################################################
+
+Future Considerations & Scalability
+
+Q: What are the anticipated bottlenecks as transaction volume grows, and how might you address them?
+A:
+	•	Data Ingestion: The Kafka cluster might become a bottleneck; this can be mitigated by increasing partitions, scaling brokers, or introducing additional load balancers.
+	•	Database Performance: High write loads could slow PostgreSQL; strategies include sharding, read replicas, or migrating historical data to cold storage.
+	•	ML Inference: Increased data volume might strain the ML model; options include model optimization, using more efficient algorithms, or deploying models on dedicated inference servers with GPU acceleration.
+
+
+Q: How do you plan to manage and mitigate model drift over time?
+A:
+	•	Regular Retraining: Schedule periodic retraining with new transaction data.
+	•	Continuous Monitoring: Track model performance metrics to identify drift.
+	•	Feedback Loop: Incorporate feedback from flagged transactions (both false positives and negatives) to refine the model.
+	•	A/B Testing: Gradually roll out updated models and compare their performance to ensure improvements before full deployment.
+
+####################################################################################################################################################################################################################################################################################################
+
+
+Open Ended qustions:
+
+Q: Which component do you feel most uncertain about, and what additional information do you need?
+A: You might be uncertain about the ML model selection or the real-time processing pipeline. It can be helpful to conduct small-scale experiments with different models and simulate transaction streams to see how well the architecture performs under load. Gathering more case studies or benchmarks from similar systems can also inform these decisions.
+
+
+Q: Are there any alternative technologies you’ve considered for any of the components? What were the trade-offs?
+A:
+	•	Message Queue Alternatives: RabbitMQ or AWS Kinesis could be considered, but Kafka’s scalability and partitioning model typically provide better performance for very high loads.
+	•	Databases: NoSQL options like Cassandra or MongoDB could offer higher write throughput, but PostgreSQL provides stronger ACID guarantees which are important for financial transactions.
+	•	ML Frameworks: TensorFlow could be an alternative to PyTorch, but the choice often depends on familiarity and specific use cases. TensorFlow may offer production advantages, while PyTorch is sometimes easier for research and experimentation.
+
+####################################################################################################################################################################################################################################################################################################
+
+
