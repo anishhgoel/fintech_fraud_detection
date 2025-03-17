@@ -6,3 +6,4 @@ pandas
 numpy 
 joblib 
 psycopg2-binary
+imblearn
