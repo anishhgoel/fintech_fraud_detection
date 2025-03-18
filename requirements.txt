@@ -10,3 +10,5 @@ imblearn
 xgboost
 lightgbm
 matplotlib
+fastapi
+uvicorn

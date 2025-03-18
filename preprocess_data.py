@@ -3,7 +3,6 @@ import numpy as np
 from math import radians, sin, cos, sqrt, atan2
 from sklearn.preprocessing import OneHotEncoder
 
-
 def load_data(filepath):
     df = pd.read_csv(filepath)
     print("Data Overview:")
