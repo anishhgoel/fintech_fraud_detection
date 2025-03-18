@@ -2,3 +2,128 @@ Firstly i did setup a producer.py and also a consumer.py to setup a kafka messag
 
 Now using fraudTest.csv to train a model (which si to be built after preprocessing dataset).
 
+# data processing: 
+
+- Removing 0th column as its just indexing and adds nothing to data
+- converitng  trans_date_trans_time to date_time object
+- time based features such as extracting hour of the day and day of the week
+- computing user's age at time of transaction using dob
+- calculating distance between user lat/long and merchant lat/long
+- renaming amt to amount for clarity
+- Handle missing values (example: fill numeric columns with 0) (there are no null values but still a good practice to include this)
+-one hot encode category or gender if wanted in modelling as categorical data in numerical format is suitable for most machine learning algos\
+
+in train_model
+
+first i need to get the preprocessed data
+then select the columns that would be useful and drop rest for training the model.
+then in scale_features function, normalize the data with so that features re on similar scale; StandardScaler transforms data to have 0 mean and unit variance. fit_transform transforms values of each column to new scale
+and then for
+train_model fucntion, 30 % testing , 70% training, random _state to make results reproducable, 
+stratify to make sure When splitting the data, we want both the training set and the test set to have the same proportion of fraud and non-fraud transactions as in the original dataset.
+First just use logistic regression as good for a bimary classifier and iteration to 1000 so we can converge and  with class_weight='balanced':the model gives more weight to fraud cases 
+so it doesn’t ignore them. This helps it learn to detect fraud better as otherwise 98% of transactions are non-fraud and the model learns to just predict "not fraud" for everything.The model will adjust the weights so that fraud transactions count more:
+
+Non-fraud weight = 1 / 9800
+Fraud weight = 1 / 200 (higher weight)
+
+
+Model evaluation metrics:
+
+## model.predict(X_test) : This predicts whether a transaction is fraud (1) or not fraud (0)
+
+## model.predict_proba(X_test)[:, 1] :
+ 
+The model outputs two probabilities for each transaction:
+[:, 0] → Probability of not fraud (0)
+[:, 1] → Probability of fraud (1)
+The [:, 1] part selects only the fraud probability.
+Example Output: [0.05, 0.20, 0.85, 0.10, 0.90, 0.15, 0.30, 0.75]
+
+
+## classification_report(y_test, y_pred)	 : 
+Precision: Out of all predicted fraud cases, how many were actually fraud?
+Recall: Out of all actual fraud cases, how many did we detect?
+F1-score: A balance between precision and recall.
+
+
+
+## Confusion Matrix : A confusion matrix shows how many predictions were correct and wrong.
+
+example
+Actual / Predicted	Not Fraud (0)	     Fraud (1)
+Not Fraud (0)	    2870 (Correct)	    30 (Mistake)
+Fraud (1)	       40 (Missed Fraud)	60 (Correct)
+
+30 false positives (wrongly predicted fraud)
+40 false negatives (missed fraud cases)
+
+
+##  ROC-AUC Score : ROC-AUC Score measures how well the model distinguishes fraud from non-fraud.
+
+It ranges from 0 to 1:
+1.0 = Perfect model
+0.5 = Random guessing
+If AUC = 0.85, it means the model is 85% good at distinguishing fraud from non-fraud.
+
+##################################################################
+
+with linear refgression:
+(fraud) anishgoel@MacbookAG fintech_fraud_detection % python3 train_model.py
+Selected features: ['amount', 'hour', 'day_of_week', 'age', 'distance_km', 'city_pop', 'category_entertainment', 'category_food_dining', 'category_gas_transport', 'category_grocery_net', 'category_grocery_pos', 'category_health_fitness', 'category_home', 'category_kids_pets', 'category_misc_net', 'category_misc_pos', 'category_personal_care', 'category_shopping_net', 'category_shopping_pos', 'category_travel', 'gender_F', 'gender_M']
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      0.89      0.94    166072
+           1       0.03      0.76      0.05       644
+
+    accuracy                           0.89    166716
+   macro avg       0.51      0.83      0.50    166716
+weighted avg       1.00      0.89      0.94    166716
+
+Confusion Matrix:
+[[148017  18055]
+ [   153    491]]
+ROC-AUC Score: 0.9141
+
+
+we can see from confusion matrix we have high false positives of 18055 . also we can see precision for fraud is very low which is 3 % only. so we need to explore somethinfg else or change parameters for model to be better.
+
+####################################################
+with smote:
+
+Preprocessing complete. Data saved to data/preprocessed_transactions.csv
+(fraud) anishgoel@MacbookAG fintech_fraud_detection % python3 train_model.py
+Columns in loaded data: ['trans_date_trans_time', 'cc_num', 'merchant', 'amount', 'first', 'last', 'street', 'city', 'state', 'zip', 'lat', 'long', 'city_pop', 'job', 'dob', 'trans_num', 'unix_time', 'merch_lat', 'merch_long', 'is_fraud', 'hour', 'day_of_week', 'age', 'di
+After SMOTE, count of non-fraud (0): 387502
+After SMOTE, count of fraud (1): 387502
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       1.00      1.00      1.00    166072
+           1       0.85      0.78      0.81       644
+
+    accuracy                           1.00    166716
+   macro avg       0.92      0.89      0.91    166716
+weighted avg       1.00      1.00      1.00    166716
+
+Confusion Matrix:
+[[165980     92]
+ [   139    505]]
+ROC-AUC Score: 0.9843
+Improved model saved as models/improved_fraud_model.pkl
+
+
+	•	Data Imbalance:
+“We used SMOTE to balance the training data, which allowed the model to better learn the characteristics of fraud transactions despite their rarity in the original dataset.”
+	•	Model Choice:
+“Switching from Logistic Regression to a Random Forest improved our ability to capture complex, non-linear relationships. We also applied class weighting to further mitigate imbalance issues.”
+	•	Evaluation Metrics:
+“Our improved model achieved an ROC-AUC of 0.9843, demonstrating strong discriminative power. The precision for fraud improved to 85%, and recall reached 78%. While we still miss some fraud cases, these metrics represent a significant step forward from our initial model.”
+	•	Next Steps:
+“Future work could involve tuning the decision threshold, incorporating additional features like transaction velocity or user behavioral patterns, and experimenting with other ensemble methods like XGBoost for further gains.”
+
+
+############################################################
+
+
