@@ -124,6 +124,57 @@ Improved model saved as models/improved_fraud_model.pkl
 “Future work could involve tuning the decision threshold, incorporating additional features like transaction velocity or user behavioral patterns, and experimenting with other ensemble methods like XGBoost for further gains.”
 
 
-############################################################
+####################################################################################################################################################################################
 
 
+With stacking model:
+
+I chose a stacking ensemble approach where I use both XGBoost and LightGBM as base estimators and a logistic regression model as the 
+meta-estimator. The rationale behind this is to combine the strengths of both gradient boosting models—XGBoost’s 
+robust handling of non-linear relationships and LightGBM’s speed and efficiency—while leveraging logistic regression’s interpretability
+at the final stage
+
+
+The dataset is highly imbalanced, with fraud cases being extremely rare. To address this, I used SMOTE (Synthetic Minority Over-sampling Technique) 
+on the training data. This technique synthesizes new examples from the minority class to balance the dataset, which helps the 
+model better learn the patterns associated with fraud.
+
+- GridSearchCV for Hyperparameter Tuning:
+I performed hyperparameter tuning with GridSearchCV on the XGBoost component of the ensemble. By tuning parameters like n_estimators, max_depth, 
+learning_rate, and subsample, I was able to optimize the model for a high ROC-AUC score. This process ensures that the model is not 
+only powerful but also well-calibrated for the specific characteristics of our data.”
+- Evaluation Metrics:
+“Given the imbalanced nature of the dataset, I focused on metrics beyond accuracy—such as precision, recall, F1-score, and ROC-AUC—to ensure 
+that the model performs well on the minority fraud class.”
+
+
+Optimizing the Decision Threshold:
+I noticed that the default threshold of 0.5 didn’t yield the best balance between precision and recall for the fraud class.
+ Therefore, I calculated the precision-recall curve and determined an optimal threshold of 0.9958, which maximized the F1-score.
+ This adjustment improved the precision for fraud to 92% while maintaining an acceptable recall of 76%.”
+Trade-of:
+This threshold tuning is crucial because, in fraud detection, the cost of false positives (flagging legitimate transactions as fraud) 
+can be high. By fine-tuning the threshold, we can balance these errors based on business requirements.
+
+
+	With the default threshold (0.5):
+	•	Fraud Precision: 65%
+	•	Fraud Recall: 87%
+	•	Overall ROC-AUC: 0.9817
+	•	After threshold tuning (optimal threshold of 0.9958):
+	•	Fraud Precision improved to 92%
+	•	Fraud Recall adjusted to 76%
+	•	The confusion matrix at this threshold shows 166,031 true negatives, 41 false positives, 152 false negatives, and 492 true positives.
+
+These results indicate that our model is very effective at distinguishing fraud from non-fraud, as reflected by the ROC-AUC of approximately 0.9817.
+ While the trade-off between precision and recall is inherent in imbalanced problems, achieving a 92% precision means that when the 
+ model flags a transaction as fraud, there is a 92% chance it truly is, which is critical for operational efficiency
+
+
+####################################################################################################################################################################################
+## endpoint
+
+To demonstrate a complete solution, I integrated my model into a FastAPI service. I defined a Pydantic model to validate the incoming JSON data—ensuring
+that the API received exactly the features my model expects. The API endpoint converts the input data into a Pandas DataFrame, passes
+ it through the saved model pipeline, and returns the fraud probability along with a binary prediction.
+####################################################################################################################################################################################
