@@ -3,7 +3,12 @@ from pydantic import BaseModel
 import joblib
 import numpy as np
 import pandas as pd
+from db import SessionLocal, Transaction, init_db
+import datetime
 
+
+# initializing the database
+init_db()
 
 class TransactionData(BaseModel):
     """
@@ -11,6 +16,7 @@ class TransactionData(BaseModel):
     Default values for one-hot columns are set to 0.0, 
     so they don't have to be explicitly provided in every request.
     """
+    #transaction_id: int = None
     amount: float
     hour: int
     day_of_week: int
@@ -55,26 +61,54 @@ app = FastAPI(
 
 @app.post("/predict")
 def predict_fraud(data: TransactionData):
-    """
-    Endpoint that takes JSON-formatted transaction data
-    and returns a fraud probability and binary label.
-    """
     # Convert the Pydantic model to a dict
     data_dict = data.dict()
-
+    print("Received data dict:", data_dict)
+    
     # Convert dict to a single-row DataFrame
-    df = pd.DataFrame([data_dict])  
-
+    df = pd.DataFrame([data_dict])
+    print("DataFrame columns before prediction:", df.columns.tolist())
+    
+    # If any extra columns (like transaction_id) exist, remove them:
+    expected_features = ["amount", "hour", "day_of_week", "age", "distance_km", "city_pop",
+                         "category_entertainment", "category_food_dining", "category_gas_transport",
+                         "category_grocery_net", "category_grocery_pos", "category_health_fitness",
+                         "category_home", "category_kids_pets", "category_misc_net", "category_misc_pos",
+                         "category_personal_care", "category_shopping_net", "category_shopping_pos",
+                         "category_travel", "gender_F", "gender_M"]
+    # Filter only expected columns
+    df = df[expected_features]
+    print("DataFrame columns after filtering:", df.columns.tolist())
+    
     # Obtain fraud probability from the pipeline
-    # model_pipeline is typically a Pipeline with SMOTE + scaling + classifier,
-    # but for inference, SMOTE won't apply, so  just a scaling + classifier pipeline
     fraud_probability = model_pipeline.predict_proba(df)[:, 1][0]
-
+    
     # Decide on a threshold (could be the optimized threshold from training, but keeping 0.5 for now)
     threshold = 0.5
     is_fraud = int(fraud_probability >= threshold)
-
-    # Return both the probability and the binary classification
+    
+    session = SessionLocal()
+    try:
+        transaction_log = Transaction(
+        amount=float(data_dict["amount"]),
+        hour=int(data_dict["hour"]),
+        day_of_week=int(data_dict["day_of_week"]),
+        age=float(data_dict["age"]),
+        distance_km=float(data_dict["distance_km"]),
+        city_pop=int(data_dict["city_pop"]),
+        fraud_probability=float(fraud_probability),  # Convert np.float64 to native float
+        is_fraud=int(is_fraud),
+        created_at=datetime.datetime.utcnow()
+    )
+        session.add(transaction_log)
+        session.commit()
+        print("Transaction successfully logged to database.")
+    except Exception as e:
+        session.rollback()
+        print("Error logging to database:", e)
+    finally:
+        session.close()
+    
     return {
         "fraud_probability": float(fraud_probability),
         "is_fraud": is_fraud

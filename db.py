@@ -13,7 +13,7 @@ Base = declarative_base()  # Creates a base class for ORM models.
 class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(Integer, nullable=True)  # Optional if provided by the producer/API
+   # transaction_id = Column(Integer, nullable=True)  # Optional if provided by the producer/API
     amount = Column(Float, nullable=False)
     hour = Column(Integer, nullable=False)
     day_of_week = Column(Integer, nullable=False)
@@ -27,3 +27,4 @@ class Transaction(Base):
 # initializing the database
 def init_db():
     Base.metadata.create_all(bind=engine) # creates all the tables defined by = ORM models in database if they don’t already exist
+

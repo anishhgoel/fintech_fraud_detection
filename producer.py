@@ -11,7 +11,7 @@ producer = KafkaProducer(
 if __name__ == '__main__':
     for i in range(30):
         transaction = {
-            "transaction_id": i,
+            #"transaction_id": i,
             "amount": 100.0 + i,  # Example amount
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "user_id": 1000 + i,
