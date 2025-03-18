@@ -178,3 +178,18 @@ To demonstrate a complete solution, I integrated my model into a FastAPI service
 that the API received exactly the features my model expects. The API endpoint converts the input data into a Pandas DataFrame, passes
  it through the saved model pipeline, and returns the fraud probability along with a binary prediction.
 ####################################################################################################################################################################################
+
+## integration of apredict pi in the kafka consumer 
+I simulated a realistic variation in the transaction data by using random values. For instance, instead of having a constant city population for every transaction, 
+I used random.randint(10000, 500000) to generate diverse city population sizes. This adds a layer of realism and helps test how
+ the model performs under variable conditions.
+
+#Importance for Model Robustness:
+In production, transaction data will naturally have a wide range of values. By simulating these variations,
+ I ensure that the model is exposed to diverse data during testing, which can improve its generalizability and robustness when deployed.
+
+
+
+ then i modified kakfa consuner to such tht it gets simulated data from producer and then passes data through API
+
+####################################################################################################################################################################################
