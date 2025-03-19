@@ -193,3 +193,30 @@ In production, transaction data will naturally have a wide range of values. By s
  then i modified kakfa consuner to such tht it gets simulated data from producer and then passes data through API
 
 ####################################################################################################################################################################################
+
+##POSTGRES
+
+ encountered an error when trying to connect to PostgreSQL because it attempted to connect to a database named after my macOS username, 
+ ‘anishgoel’, which did not exist. To resolve this, I connected to the default ‘postgres’ database and then created a new database 
+ using SQL commands. Alternatively, I can create a custom-named database, such as ‘frauddb’, and update my application’s connection
+  string accordingly. This experience highlights my ability to troubleshoot and configure PostgreSQL for production use.
+
+•Database Integration:
+I used SQLAlchemy to integrate PostgreSQL into my fraud detection pipeline. I created an ORM model to log every transaction along with 
+its prediction. This setup not only supports auditing and historical analysis for retraining but also ensures that the system can track 
+performance over time.
+•Table Schema and Design:
+I designed the transactions table to store both the input features and the model output, including a timestamp for when each record was 
+created. This schema is essential for debugging and continuous improvement.”
+•Error Handling and Scalability:
+I implemented robust session management using SQLAlchemy’s sessionmaker, ensuring that database transactions are handled safely.
+
+
+
+####################################################################################################################################################################################
+Enhancement to kafka
+
+My current Kafka consumer forwards live transaction data to my FastAPI endpoint, effectively creating an end-to-end pipeline. However, for production, 
+I’m considering enhancements such as parallel processing via Kafka partitions and multiple consumer instances, asynchronous HTTP requests 
+to reduce latency, and robust error handling with retry logic. These improvements would ensure the system scales smoothly under
+ high transaction volumes and maintains reliability even in the event of temporary API outages
