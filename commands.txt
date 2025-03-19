@@ -1,0 +1,39 @@
+## To start zookeeper:
+
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+## Start Kafka Broker
+
+bin/kafka-server-start.sh config/server.properties
+
+## To create topic with partitions (by default there is one partitions if this command not used)
+bin/kafka-topics.sh --alter --bootstrap-server localhost:9092 \
+    --topic transactions --partitions 4
+
+
+#######################################################################################################################
+
+
+## To change number of partitions:
+bin/kafka-topics.sh --alter --bootstrap-server localhost:9092 --topic transactions --partitions 6
+
+## to check number of partitions:
+bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic transactions
+
+
+
+#######################################################################################################################
+
+ to go into psql : psql -U anishgoel -d frauddb
+
+ then can run commands like : SELECT * FROM transactions;
+
+
+ #######################################################################################################################
+ 
+ to start api:
+
+ python -m uvicorn api:app --reload --host 0.0.0.0 --port 8000 --log-level debug
+
+
+
