@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from db import SessionLocal, Transaction, init_db
 import datetime
+import redis
+import json
 
 
 # initializing the database
@@ -57,6 +59,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
 # Making a Prediction Endpoint
 
 @app.post("/predict")
@@ -64,8 +68,17 @@ def predict_fraud(data: TransactionData):
     # Convert the Pydantic model to a dict
     data_dict = data.dict()
     print("Received data dict:", data_dict)
+
+    # Create a key based on input data to cache the result (using a hashable representation)
+    cache_key = "fraud_prediction:" + json.dumps(data_dict, sort_keys=True)
+
+    # Check if the result is already cached in Redis
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        print("Cache hit!")
+        return json.loads(cached_result)
     
-    # Convert dict to a single-row DataFrame
+    # If not cached, convert dict to a single-row DataFrame for prediction
     df = pd.DataFrame([data_dict])
     print("DataFrame columns before prediction:", df.columns.tolist())
     
@@ -109,7 +122,10 @@ def predict_fraud(data: TransactionData):
     finally:
         session.close()
     
-    return {
+    result = {
         "fraud_probability": float(fraud_probability),
         "is_fraud": is_fraud
     }
+    redis_client.setex(cache_key, 600, json.dumps(result))
+
+    return result
